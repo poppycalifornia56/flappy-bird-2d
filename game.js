@@ -1,7 +1,7 @@
 const GRAVITY = 0.2;
 const JUMP_FORCE = -4;
 const PIPE_SPEED = 2;
-const PIPE_GAP = 250; 
+const PIPE_GAP = 250;
 const PIPE_FREQUENCY = 1800;
 const BIRD_HEIGHT = 30;
 const BIRD_WIDTH = 40;
@@ -14,6 +14,7 @@ let gameRunning = false;
 let gameOver = false;
 let lastPipeTime = 0;
 let animationId;
+let previewMode = true;
 
 let birdImg;
 let pipeImg;
@@ -25,6 +26,10 @@ let finalScoreElement;
 let restartBtn;
 let startScreen;
 let startBtn;
+
+let previewBird;
+let previewPipes = [];
+let lastPreviewJump = 0;
 
 function loadImages() {
   birdImg = new Image();
@@ -64,8 +69,13 @@ function init() {
 
   bird = new Bird(50, canvas.height / 2);
 
+  previewBird = new Bird(50, canvas.height / 2);
+  createPreviewPipes();
+
   gameOverElement.style.display = "none";
   startScreen.style.display = "flex";
+
+  previewLoop();
 }
 
 class Bird {
@@ -82,13 +92,17 @@ class Bird {
     ctx.drawImage(birdImg, this.x, this.y, this.width, this.height);
   }
 
-  update() {
+  update(isPreview = false) {
     this.velocity += this.gravity;
     this.y += this.velocity;
 
     if (this.y < 0) {
       this.y = 0;
       this.velocity = 0;
+    }
+
+    if (isPreview && this.y > canvas.height / 2 + 50) {
+      this.jump();
     }
   }
 
@@ -108,22 +122,33 @@ class Bird {
 }
 
 class Pipe {
-  constructor(x, isTop) {
+  constructor(x, isTop, isPreview = false) {
     this.x = x;
     this.width = 60;
     this.isTop = isTop;
+    this.isPreview = isPreview;
 
     const MIN_PIPE_HEIGHT = 50;
     const availableSpace = canvas.height - PIPE_GAP - 2 * MIN_PIPE_HEIGHT;
 
-    const gapPosition = MIN_PIPE_HEIGHT + Math.random() * availableSpace;
-
-    if (isTop) {
-      this.y = 0;
-      this.height = gapPosition;
+    if (isPreview) {
+      const gapPosition = canvas.height / 2 - PIPE_GAP / 2;
+      if (isTop) {
+        this.y = 0;
+        this.height = gapPosition;
+      } else {
+        this.y = gapPosition + PIPE_GAP;
+        this.height = canvas.height - this.y;
+      }
     } else {
-      this.y = gapPosition + PIPE_GAP;
-      this.height = canvas.height - this.y;
+      const gapPosition = MIN_PIPE_HEIGHT + Math.random() * availableSpace;
+      if (isTop) {
+        this.y = 0;
+        this.height = gapPosition;
+      } else {
+        this.y = gapPosition + PIPE_GAP;
+        this.height = canvas.height - this.y;
+      }
     }
 
     this.passed = false;
@@ -149,7 +174,21 @@ class Pipe {
 
   update() {
     this.x -= PIPE_SPEED;
+
+    if (this.isPreview && this.x + this.width < 0) {
+      this.x = canvas.width;
+    }
   }
+}
+
+function createPreviewPipes() {
+  const pipe1Top = new Pipe(canvas.width, true, true);
+  const pipe1Bottom = new Pipe(canvas.width, false, true);
+
+  const pipe2Top = new Pipe(canvas.width + 200, true, true);
+  const pipe2Bottom = new Pipe(canvas.width + 200, false, true);
+
+  previewPipes = [pipe1Top, pipe1Bottom, pipe2Top, pipe2Bottom];
 }
 
 function drawBackground() {
@@ -160,18 +199,26 @@ function drawBackground() {
 }
 
 function handleJump() {
+  if (previewMode) {
+    startGame();
+    return;
+  }
+
   if (!gameRunning) return;
   bird.jump();
 }
 
 function startGame() {
   startScreen.style.display = "none";
+  previewMode = false;
   gameRunning = true;
   gameOver = false;
   score = 0;
   pipes = [];
   bird = new Bird(50, canvas.height / 2);
   lastPipeTime = Date.now();
+
+  cancelAnimationFrame(animationId);
   gameLoop();
 }
 
@@ -186,6 +233,15 @@ function endGame() {
   gameOverElement.style.display = "flex";
   finalScoreElement.textContent = score;
   cancelAnimationFrame(animationId);
+
+  setTimeout(() => {
+    if (gameOver) {
+      previewMode = true;
+      previewBird = new Bird(50, canvas.height / 2);
+      createPreviewPipes();
+      previewLoop();
+    }
+  }, 3000);
 }
 
 function spawnPipes() {
@@ -232,6 +288,37 @@ function checkBoundaries() {
   if (bird.y + bird.height > canvas.height - 20 || bird.y < 0) {
     endGame();
   }
+}
+
+function makePreviewBirdJump() {
+  const currentTime = Date.now();
+  if (currentTime - lastPreviewJump > 1000) {
+    previewBird.jump();
+    lastPreviewJump = currentTime;
+  }
+}
+
+function previewLoop() {
+  if (!previewMode) return;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  drawBackground();
+
+  for (const pipe of previewPipes) {
+    pipe.update();
+    pipe.draw();
+  }
+
+  makePreviewBirdJump();
+
+  previewBird.update(true);
+  previewBird.draw();
+
+  ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  animationId = requestAnimationFrame(previewLoop);
 }
 
 function gameLoop() {
