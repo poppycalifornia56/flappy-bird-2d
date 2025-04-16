@@ -1,7 +1,7 @@
 const GRAVITY = 0.2;
 const JUMP_FORCE = -4;
 const PIPE_SPEED = 2;
-const PIPE_GAP = 250; // Increased gap size
+const PIPE_GAP = 250; 
 const PIPE_FREQUENCY = 1800;
 const BIRD_HEIGHT = 30;
 const BIRD_WIDTH = 40;
@@ -15,7 +15,6 @@ let gameOver = false;
 let lastPipeTime = 0;
 let animationId;
 
-// Image assets
 let birdImg;
 let pipeImg;
 let backgroundImg;
@@ -80,7 +79,6 @@ class Bird {
   }
 
   draw() {
-    // Draw bird image instead of rectangle
     ctx.drawImage(birdImg, this.x, this.y, this.width, this.height);
   }
 
@@ -99,7 +97,6 @@ class Bird {
   }
 
   checkCollision(pipe) {
-    // Improved collision detection with accurate buffer
     const BUFFER = 5;
     return (
       this.x + BUFFER < pipe.x + pipe.width - BUFFER &&
@@ -134,7 +131,6 @@ class Pipe {
 
   draw() {
     if (this.isTop) {
-      // Draw top pipe (flip the image)
       ctx.save();
       ctx.translate(this.x + this.width / 2, this.height / 2);
       ctx.scale(1, -1);
@@ -147,7 +143,6 @@ class Pipe {
       );
       ctx.restore();
     } else {
-      // Draw bottom pipe normally
       ctx.drawImage(pipeImg, this.x, this.y, this.width, this.height);
     }
   }
@@ -158,10 +153,8 @@ class Pipe {
 }
 
 function drawBackground() {
-  // Draw the background image
   ctx.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height);
 
-  // Draw the ground at the bottom of the canvas
   const groundY = canvas.height - 20;
   ctx.drawImage(groundImg, 0, groundY, canvas.width, 20);
 }
@@ -246,7 +239,6 @@ function gameLoop() {
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Draw background first
   drawBackground();
 
   bird.update();
