@@ -13,9 +13,12 @@ let pipes = [];
 let score = 0;
 let gameRunning = false;
 let gameOver = false;
+let gamePaused = false;
 let lastPipeTime = 0;
 let animationId;
 let previewMode = true;
+
+let spacebarPressed = false;
 
 let birdImg;
 let pipeImg;
@@ -97,7 +100,6 @@ class Bird {
 
   jump(isPreview = false) {
     this.velocity = JUMP_FORCE;
-
     if (!isPreview && gameRunning) {
       playSound("wing");
     }
@@ -196,10 +198,61 @@ function init() {
   startScreen = document.getElementById("startScreen");
   startBtn = document.getElementById("startBtn");
 
+  pauseScreen = document.getElementById("pauseScreen");
+  if (!pauseScreen) {
+    pauseScreen = document.createElement("div");
+    pauseScreen.id = "pauseScreen";
+    pauseScreen.style.position = "absolute";
+    pauseScreen.style.top = "0";
+    pauseScreen.style.left = "0";
+    pauseScreen.style.width = "100%";
+    pauseScreen.style.height = "100%";
+    pauseScreen.style.backgroundColor = "rgba(0, 0, 0, 0.5)";
+    pauseScreen.style.display = "none";
+    pauseScreen.style.justifyContent = "center";
+    pauseScreen.style.alignItems = "center";
+    pauseScreen.style.zIndex = "1000";
+
+    const pauseText = document.createElement("div");
+    pauseText.textContent = "PAUSED";
+    pauseText.style.color = "white";
+    pauseText.style.fontSize = "48px";
+    pauseText.style.fontWeight = "bold";
+    pauseText.style.textAlign = "center";
+
+    const controlsInfo = document.createElement("div");
+    controlsInfo.innerHTML =
+      "Press [P] to resume<br>[R] to restart<br>[ESC] to quit";
+    controlsInfo.style.color = "#ffffff";
+    controlsInfo.style.fontSize = "24px";
+    controlsInfo.style.marginTop = "20px";
+    controlsInfo.style.textAlign = "center";
+
+    pauseScreen.appendChild(pauseText);
+    pauseScreen.appendChild(controlsInfo);
+
+    document.body.appendChild(pauseScreen);
+  }
+
   document.addEventListener("keydown", (e) => {
     if (e.code === "Space") {
       e.preventDefault();
       handleJump();
+      spacebarPressed = true;
+    } else if (e.key.toLowerCase() === "r") {
+      e.preventDefault();
+      handleRestartKey();
+    } else if (e.key.toLowerCase() === "p") {
+      handlePauseKey();
+    } else if (e.key === "Escape") {
+      handleQuitKey();
+    }
+  });
+
+  document.addEventListener("keyup", (e) => {
+    if (e.code === "Space") {
+      e.preventDefault();
+      spacebarPressed = false;
     }
   });
 
@@ -214,6 +267,81 @@ function init() {
   gameOverElement.style.display = "none";
   startScreen.style.display = "flex";
 
+  previewLoop();
+
+  const controlsDiv = document.createElement("div");
+  controlsDiv.innerHTML =
+    "Controls:<br>[SPACE] to Jump/Start<br>[P] to Pause<br>[R] to Restart<br>[ESC] to Quit";
+  controlsDiv.style.color = "white";
+  controlsDiv.style.fontSize = "18px";
+  controlsDiv.style.marginTop = "20px";
+  controlsDiv.style.textAlign = "center";
+  startScreen.appendChild(controlsDiv);
+}
+
+function handleRestartKey() {
+  if (gameOver || gameRunning || gamePaused) {
+    cancelAnimationFrame(animationId);
+
+    gameRunning = false;
+    gameOver = false;
+    gamePaused = false;
+    score = 0;
+    pipes = [];
+    bird = new Bird(50, canvas.height / 2);
+    lastPipeTime = Date.now();
+
+    gameOverElement.style.display = "none";
+    pauseScreen.style.display = "none";
+
+    startGame();
+  }
+}
+
+function handlePauseKey() {
+  if (gameRunning && !gameOver) {
+    togglePause();
+  }
+}
+
+function handleQuitKey() {
+  if (gameRunning || gamePaused) {
+    if (confirm("Quit game?")) {
+      quitGame();
+    } else if (gamePaused) {
+      togglePause();
+    }
+  }
+}
+
+function togglePause() {
+  gamePaused = !gamePaused;
+
+  if (gamePaused) {
+    cancelAnimationFrame(animationId);
+    pauseScreen.style.display = "flex";
+    playSound("swoosh");
+  } else {
+    pauseScreen.style.display = "none";
+    playSound("swoosh");
+    gameLoop();
+  }
+}
+
+function quitGame() {
+  cancelAnimationFrame(animationId);
+  gameRunning = false;
+  gameOver = false;
+  gamePaused = false;
+  pauseScreen.style.display = "none";
+  gameOverElement.style.display = "none";
+
+  previewMode = true;
+  previewBird = new Bird(50, canvas.height / 2);
+  createPreviewPipes();
+  startScreen.style.display = "flex";
+
+  playSound("swoosh");
   previewLoop();
 }
 
@@ -236,16 +364,21 @@ function drawBackground() {
 
 function handleJump() {
   if (previewMode) {
+    gameOverElement.style.display = "none";
     startGame();
     return;
   }
 
-  if (!gameRunning) return;
+  if (!gameRunning || gameOver || gamePaused) return;
+
   bird.jump();
 }
 
 function startGame() {
+  if (gameRunning) return;
+
   playSound("swoosh");
+  gameOverElement.style.display = "none";
   startScreen.style.display = "none";
   previewMode = false;
   gameRunning = true;
@@ -256,12 +389,13 @@ function startGame() {
   lastPipeTime = Date.now();
 
   cancelAnimationFrame(animationId);
+
   gameLoop();
 }
 
 function resetGame() {
   gameOverElement.style.display = "none";
-  startGame();
+  handleRestartKey();
 }
 
 function endGame() {
@@ -273,6 +407,19 @@ function endGame() {
   gameOverElement.style.display = "flex";
   finalScoreElement.textContent = score;
   cancelAnimationFrame(animationId);
+
+  const restartHint = document.createElement("div");
+  restartHint.textContent = "Press [R] to restart or [SPACE] to play again";
+  restartHint.style.fontSize = "20px";
+  restartHint.style.marginTop = "10px";
+  restartHint.style.color = "#ffffff";
+
+  const existingHint = gameOverElement.querySelector("div:last-child");
+  if (existingHint && existingHint.textContent.includes("Press [R]")) {
+    existingHint.textContent = "Press [R] to restart or [SPACE] to play again";
+  } else {
+    gameOverElement.appendChild(restartHint);
+  }
 
   setTimeout(() => {
     if (gameOver) {
@@ -325,6 +472,18 @@ function drawScore() {
   ctx.fillText(`Score: ${score}`, 20, 40);
 }
 
+function drawControls() {
+  if (gameRunning && !gameOver && !gamePaused) {
+    ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+    ctx.font = "14px Arial";
+    ctx.fillText(
+      "[P] Pause | [R] Restart | [ESC] Quit",
+      canvas.width - 220,
+      20
+    );
+  }
+}
+
 function checkBoundaries() {
   if (bird.y + bird.height > canvas.height - 20 || bird.y < 0) {
     endGame();
@@ -363,7 +522,7 @@ function previewLoop() {
 }
 
 function gameLoop() {
-  if (gameOver) return;
+  if (gameOver || gamePaused) return;
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -382,6 +541,7 @@ function gameLoop() {
   }
 
   drawScore();
+  drawControls();
   checkBoundaries();
 
   animationId = requestAnimationFrame(gameLoop);
