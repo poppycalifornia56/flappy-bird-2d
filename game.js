@@ -18,7 +18,8 @@ let lastPipeTime = 0;
 let animationId;
 let previewMode = true;
 
-let spacebarPressed = false;
+// Track if spacebar has been released since last jump
+let canJump = true;
 
 let birdImg;
 let pipeImg;
@@ -237,8 +238,10 @@ function init() {
   document.addEventListener("keydown", (e) => {
     if (e.code === "Space") {
       e.preventDefault();
-      handleJump();
-      spacebarPressed = true;
+      if (canJump) {
+        handleJump();
+        canJump = false;
+      }
     } else if (e.key.toLowerCase() === "r") {
       e.preventDefault();
       handleRestartKey();
@@ -252,7 +255,7 @@ function init() {
   document.addEventListener("keyup", (e) => {
     if (e.code === "Space") {
       e.preventDefault();
-      spacebarPressed = false;
+      canJump = true;
     }
   });
 
@@ -387,6 +390,7 @@ function startGame() {
   pipes = [];
   bird = new Bird(50, canvas.height / 2);
   lastPipeTime = Date.now();
+  canJump = true;
 
   cancelAnimationFrame(animationId);
 
