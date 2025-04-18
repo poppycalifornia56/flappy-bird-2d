@@ -18,7 +18,6 @@ let lastPipeTime = 0;
 let animationId;
 let previewMode = true;
 
-// Track if spacebar has been released since last jump
 let canJump = true;
 
 let birdImg;
